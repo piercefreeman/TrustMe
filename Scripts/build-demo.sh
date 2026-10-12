@@ -51,8 +51,9 @@ PLIST
 # TCC ties grants to the code signature. An ad-hoc signature changes on every
 # build, so a grant made for one build silently stops matching the next. Prefer
 # a real identity (override with CODESIGN_IDENTITY); fall back to ad-hoc.
+# (`|| true`: with no identities grep fails, which pipefail would turn fatal.)
 IDENTITY="${CODESIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null \
-  | grep -o '"Apple Development: [^"]*"' | head -1 | tr -d '"')}"
+  | grep -o '"Apple Development: [^"]*"' | head -1 | tr -d '"' || true)}"
 codesign --force --deep --sign "${IDENTITY:--}" --identifier "$BUNDLE_ID" "$APP"
 echo "Signed with: ${IDENTITY:-ad-hoc (grants reset on every rebuild)}"
 
