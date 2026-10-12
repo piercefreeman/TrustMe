@@ -115,3 +115,11 @@ swift run TrustMeRender --settings settings.png --app build/TrustMe.app --out re
 
 It briefly puts the composition on screen to capture it, since behind-window blur only
 renders on screen.
+
+## Credits
+
+I first saw this interaction in OpenAI's Codex app, during its Computer Use setup, and
+thought it was a great idea: instead of sending people hunting through System Settings,
+hand them the app and let them drop it where it belongs. Ideally Apple supports this
+first-class one day, or at least offers a less disruptive way to grant permissions. Until
+then, it's up to the community to solve.
