@@ -22,12 +22,11 @@ permissions list. No popups required.
   </tr>
 </table>
 
-- Floating glass panel docked to the System Settings window: waits for the window to
-  settle before appearing in place, follows it as it moves, hides while Settings isn't in front
-- Native file drag of your `.app` bundle — the same pasteboard Finder produces
-- Live status for Accessibility, Screen Recording, Input Monitoring, Full Disk Access,
-  App Management and Developer Tools; auto-dismisses with a success state once granted
-- Liquid Glass on macOS 26, a matching blur/rim/sheen recreation on macOS 14–15
+- Floating panel docked to the System Settings window
+- Requests auto dismiss with a success state once granted
+- Customize permissions, only scoped to what you need
+- Auto detection of your app and design
+- Beautiful glassy UI ready for macOS 26
 
 ## Usage
 
