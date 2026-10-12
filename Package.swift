@@ -1,0 +1,17 @@
+// swift-tools-version: 6.0
+import PackageDescription
+
+let package = Package(
+    name: "TrustMe",
+    platforms: [.macOS(.v14)],
+    products: [
+        .library(name: "TrustMe", targets: ["TrustMe"]),
+        .executable(name: "TrustMeDemo", targets: ["TrustMeDemo"]),
+    ],
+    targets: [
+        .target(name: "TrustMe"),
+        .executableTarget(name: "TrustMeDemo", dependencies: ["TrustMe"]),
+        // Dev tool: composites real guide panels over a backdrop and screenshots them.
+        .executableTarget(name: "TrustMeRender", dependencies: ["TrustMe"]),
+    ]
+)

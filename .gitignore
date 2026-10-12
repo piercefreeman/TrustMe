@@ -60,3 +60,11 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
+
+# TrustMe
+## Demo app bundle and icon produced by Scripts/build-demo.sh
+build/
+## SwiftPM / Xcode workspace state
+.swiftpm/
+## macOS
+.DS_Store
