@@ -23,7 +23,7 @@ public struct PermissionButton: View {
                 Button("Relaunch") { Relauncher.relaunch() }
                     .buttonStyle(.trustMePrimary(small: small))
             case .notGranted:
-                Button(flow.activePermission == permission ? "Open settings" : "Allow") { flow.authorize(permission) }
+                Button(allowTitle) { flow.authorize(permission) }
                     .buttonStyle(.trustMeSecondary(small: small))
             case .unknown:
                 Button("Open settings") { flow.authorize(permission) }
@@ -31,6 +31,15 @@ public struct PermissionButton: View {
             }
         }
         .animation(TrustMeTheme.quick, value: PermissionCenter.shared.status(of: permission))
+    }
+}
+
+extension PermissionButton {
+    /// "Allow" while there's something to start; "Open settings" when only
+    /// System Settings can help (a refused prompt, or a flow already under way).
+    var allowTitle: String {
+        if permission.isPromptBased { return permission.canRequest() ? "Allow" : "Open settings" }
+        return flow.activePermission == permission ? "Open settings" : "Allow"
     }
 }
 

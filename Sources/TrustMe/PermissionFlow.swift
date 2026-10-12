@@ -62,10 +62,26 @@ public final class PermissionFlow {
         Relauncher.install()
     }
 
-    /// Starts the flow for `permission`. The panel stays hidden until the
-    /// System Settings window has settled, then appears in place beside it.
+    /// Starts the flow for `permission`.
+    ///
+    /// Drag-based permissions open System Settings and float the drag band
+    /// beside it once its window has settled. Prompt-based ones show the
+    /// system prompt, or open their System Settings pane if it was refused.
     public func authorize(_ permission: Permission) {
         dismiss(animated: false)
+
+        if permission.isPromptBased {
+            guard permission.canRequest() else {
+                NSWorkspace.shared.open(permission.settingsURL)
+                return
+            }
+            Task { @MainActor [weak self] in
+                await permission.request()
+                PermissionCenter.shared.refresh(force: true)
+                if permission.currentStatus() == .granted { self?.onGranted?(permission) }
+            }
+            return
+        }
 
         let model = GuideModel(permission: permission, app: app ?? .current)
         model.onClose = { [weak self] in self?.dismiss() }

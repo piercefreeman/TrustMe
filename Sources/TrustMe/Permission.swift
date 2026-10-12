@@ -1,5 +1,6 @@
 import AppKit
 import ApplicationServices
+import AVFoundation
 import CoreGraphics
 import SwiftUI
 import TrustMeProbe
@@ -15,11 +16,15 @@ public enum PermissionStatus: Sendable, Equatable {
     case unknown
 }
 
-/// A macOS privacy permission that can be granted by dragging an app into a
-/// System Settings › Privacy & Security list.
+/// A macOS privacy permission.
+///
+/// Most are granted by dragging the app into a System Settings › Privacy &
+/// Security list. Prompt-based ones (Camera, Microphone) are asked for with the
+/// system prompt instead; once refused, only System Settings can turn them on.
 ///
 /// Built-in permissions are exposed as static members. Create your own by
-/// supplying a settings anchor and a status check.
+/// supplying a settings anchor and a status check, plus `canRequest` and
+/// `request` for prompt-based permissions.
 public struct Permission: Identifiable, Hashable, Sendable {
     public let id: String
     public let title: String
@@ -34,6 +39,8 @@ public struct Permission: Identifiable, Hashable, Sendable {
     /// after the app relaunches.
     public let requiresRelaunch: Bool
     private let check: @Sendable () -> PermissionStatus
+    private let canRequestCheck: (@Sendable () -> Bool)?
+    private let requester: (@Sendable () async -> Void)?
 
     public init(
         id: String,
@@ -44,7 +51,9 @@ public struct Permission: Identifiable, Hashable, Sendable {
         settingsAnchor: String,
         tccService: String? = nil,
         requiresRelaunch: Bool = false,
-        check: @escaping @Sendable () -> PermissionStatus
+        check: @escaping @Sendable () -> PermissionStatus,
+        canRequest: (@Sendable () -> Bool)? = nil,
+        request: (@Sendable () async -> Void)? = nil
     ) {
         self.id = id
         self.title = title
@@ -55,10 +64,22 @@ public struct Permission: Identifiable, Hashable, Sendable {
         self.tccService = tccService
         self.requiresRelaunch = requiresRelaunch
         self.check = check
+        self.canRequestCheck = canRequest
+        self.requester = request
     }
 
     /// Reads the current status without triggering any system prompt.
     public func currentStatus() -> PermissionStatus { check() }
+
+    /// Granted through a system prompt rather than by dragging into a list.
+    public var isPromptBased: Bool { requester != nil }
+
+    /// Whether the system prompt can still be shown. False once the user has
+    /// answered it; from then on only System Settings can change the answer.
+    public func canRequest() -> Bool { canRequestCheck?() ?? false }
+
+    /// Shows the system prompt. Does nothing for drag-based permissions.
+    public func request() async { await requester?() }
 
     public static func == (lhs: Permission, rhs: Permission) -> Bool { lhs.id == rhs.id }
     public func hash(into hasher: inout Hasher) { hasher.combine(id) }
@@ -141,9 +162,45 @@ public extension Permission {
         check: { TCC.currentStatus("DeveloperTool") ?? .unknown }
     )
 
+    static let camera = Permission(
+        id: "camera",
+        title: "Camera",
+        summary: "Show your camera in recordings and calls.",
+        systemImage: "camera",
+        tint: Color(red: 0.2, green: 0.78, blue: 0.35),
+        settingsAnchor: "Privacy_Camera",
+        tccService: "Camera",
+        check: { captureStatus(for: .video) },
+        canRequest: { AVCaptureDevice.authorizationStatus(for: .video) == .notDetermined },
+        request: { _ = await AVCaptureDevice.requestAccess(for: .video) }
+    )
+
+    static let microphone = Permission(
+        id: "microphone",
+        title: "Microphone",
+        summary: "Record your voice in recordings and calls.",
+        systemImage: "mic",
+        tint: Color(red: 1.0, green: 0.45, blue: 0.25),
+        settingsAnchor: "Privacy_Microphone",
+        tccService: "Microphone",
+        check: { captureStatus(for: .audio) },
+        canRequest: { AVCaptureDevice.authorizationStatus(for: .audio) == .notDetermined },
+        request: { _ = await AVCaptureDevice.requestAccess(for: .audio) }
+    )
+
+    /// Permissions granted by dragging the app into a System Settings list.
     static let allDraggable: [Permission] = [
         .accessibility, .screenRecording, .inputMonitoring, .fullDiskAccess, .appManagement, .developerTools,
     ]
+
+    /// Permissions granted through a system prompt.
+    static let allPromptBased: [Permission] = [.camera, .microphone]
+
+    static let all: [Permission] = allDraggable + allPromptBased
+}
+
+private func captureStatus(for media: AVMediaType) -> PermissionStatus {
+    AVCaptureDevice.authorizationStatus(for: media) == .authorized ? .granted : .notGranted
 }
 
 /// Public APIs for Screen Recording and Input Monitoring cache their answer

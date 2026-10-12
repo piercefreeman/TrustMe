@@ -115,7 +115,10 @@ public struct PermissionsView: View {
     }
 
     private var defaultMessage: String {
-        "\(app.name) needs \(permissions.count == 1 ? "this" : "these") to work. Click Allow, then drag \(app.name) into the list System Settings opens."
+        let needs = "\(app.name) needs \(permissions.count == 1 ? "this" : "these") to work."
+        // Only mention dragging when something on the list is granted that way.
+        guard permissions.contains(where: { !$0.isPromptBased }) else { return "\(needs) Click Allow to turn them on." }
+        return "\(needs) Click Allow, then drag \(app.name) into the list System Settings opens."
     }
 }
 

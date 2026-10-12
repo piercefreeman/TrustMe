@@ -34,7 +34,9 @@ public final class PermissionCenter {
     }
 
     /// Re-reads every permission that has been queried so far.
-    public func refresh() {
+    /// - Parameter force: Re-render observers even if no status changed, e.g.
+    ///   when a prompt was answered and what the UI offers changes with it.
+    public func refresh(force: Bool = false) {
         var changed = false
         for (id, permission) in known {
             let status = permission.currentStatus()
@@ -43,6 +45,6 @@ public final class PermissionCenter {
                 changed = true
             }
         }
-        if changed { revision &+= 1 }
+        if changed || force { revision &+= 1 }
     }
 }

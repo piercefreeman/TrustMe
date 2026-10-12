@@ -47,6 +47,9 @@ public struct PermissionRow<Trailing: View>: View {
     private func defaultDetail(_ status: PermissionStatus) -> String {
         let app = flow.app?.name ?? AppIdentity.current.name
         if status == .needsRelaunch { return "Turned on. Relaunch \(app) to apply it." }
+        if status == .notGranted, permission.isPromptBased, !permission.canRequest() {
+            return "Turned off earlier. Turn on \(app) under \(permission.title) in System Settings."
+        }
         if status != .granted, flow.activePermission == permission {
             return "Finish in System Settings to turn it on."
         }

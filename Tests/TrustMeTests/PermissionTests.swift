@@ -17,7 +17,7 @@ final class StatusSwitch: @unchecked Sendable {
 struct PermissionTests {
     @Test("Built-in permissions are distinct and point at Privacy panes")
     func builtIns() {
-        let all = Permission.allDraggable
+        let all = Permission.all
         #expect(Set(all.map(\.id)).count == all.count)
         for permission in all {
             #expect(permission.settingsURL.scheme == "x-apple.systempreferences")
@@ -29,8 +29,20 @@ struct PermissionTests {
 
     @Test("Only Screen Recording and Input Monitoring need a relaunch")
     func relaunchSet() {
-        let relaunching = Permission.allDraggable.filter(\.requiresRelaunch).map(\.id)
+        let relaunching = Permission.all.filter(\.requiresRelaunch).map(\.id)
         #expect(Set(relaunching) == ["screen-recording", "input-monitoring"])
+    }
+
+    @Test("Camera and Microphone are asked for with the system prompt; the rest are dragged")
+    func kinds() {
+        #expect(Set(Permission.allPromptBased.map(\.id)) == ["camera", "microphone"])
+        let promptBased = Permission.allPromptBased.map(\.isPromptBased)
+        let dragged = Permission.allDraggable.map(\.isPromptBased)
+        #expect(!promptBased.contains(false))
+        #expect(!dragged.contains(true))
+        #expect(Permission.all.count == Permission.allDraggable.count + Permission.allPromptBased.count)
+        // Drag-based permissions never claim they can prompt.
+        #expect(!Permission.allDraggable.contains { $0.canRequest() })
     }
 
     @Test("Identity is the id alone")
@@ -70,6 +82,66 @@ struct PermissionTests {
         let start = Date()
         for permission in Permission.allDraggable { _ = permission.currentStatus() }
         #expect(Date().timeIntervalSince(start) < 5)
+    }
+}
+
+/// Records what a prompt-based permission was asked to do.
+final class PromptRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _requests = 0
+    private var _answered = false
+    var requests: Int { lock.withLock { _requests } }
+    var answered: Bool { lock.withLock { _answered } }
+    func answer() { lock.withLock { _requests += 1; _answered = true } }
+}
+
+@Suite("Prompt-based permissions")
+@MainActor
+struct PromptTests {
+    func permission(_ recorder: PromptRecorder, granting: Bool) -> Permission {
+        Permission(
+            id: "prompt-\(UUID())", title: "Prompt", summary: "", systemImage: "camera", tint: .green,
+            settingsAnchor: "Privacy_Camera",
+            check: { recorder.answered && granting ? .granted : .notGranted },
+            canRequest: { !recorder.answered },
+            request: { recorder.answer() }
+        )
+    }
+
+    @Test("Allow shows the prompt, then the answer sticks")
+    func prompts() async throws {
+        let recorder = PromptRecorder()
+        let permission = permission(recorder, granting: true)
+        #expect(permission.isPromptBased)
+        #expect(permission.canRequest())
+
+        var granted: [Permission] = []
+        let flow = PermissionFlow()
+        flow.onGranted = { granted.append($0) }
+        flow.authorize(permission)
+
+        for _ in 0..<100 where recorder.requests == 0 || granted.isEmpty {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(recorder.requests == 1)
+        #expect(granted == [permission])
+        #expect(!permission.canRequest())
+        #expect(PermissionCenter.shared.status(of: permission) == .granted)
+    }
+
+    @Test("A refused prompt offers System Settings instead")
+    func refused() {
+        let recorder = PromptRecorder()
+        recorder.answer()
+        let permission = permission(recorder, granting: false)
+        #expect(!permission.canRequest())
+        #expect(PermissionButton(permission).allowTitle == "Open settings")
+    }
+
+    @Test("A fresh prompt-based permission offers Allow")
+    func fresh() {
+        let permission = permission(PromptRecorder(), granting: true)
+        #expect(PermissionButton(permission).allowTitle == "Allow")
     }
 }
 

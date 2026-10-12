@@ -22,7 +22,7 @@ struct TrustMeDemoApp: App {
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private let permissions = Permission.allDraggable
+    private let permissions = Permission.all
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Relauncher.install()
@@ -55,9 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         PermissionsWindow.show(
             permissions,
             optional: [.appManagement, .developerTools],
-            message: Relauncher.wasRelaunchedForPermissions
-                ? "Welcome back. Pick up where you left off."
-                : "TrustMe needs these to work. Click Allow, then drag TrustMe into the list System Settings opens.",
+            message: Relauncher.wasRelaunchedForPermissions ? "Welcome back. Pick up where you left off." : nil,
             continueTitle: "Done"
         ) { allGranted in
             print("Onboarding finished. All required granted: \(allGranted)")

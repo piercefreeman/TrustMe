@@ -25,6 +25,7 @@ permissions list. No popups required.
 - Floating panel docked to the System Settings window
 - Requests auto dismiss with a success state once granted
 - Customize permissions, only scoped to what you need
+- Camera and Microphone in the same window, through the system's own prompt
 - Auto detection of your app and design
 - Beautiful glassy UI ready for macOS 26
 
@@ -71,6 +72,10 @@ Things to know before shipping:
   `swift run` of a bare executable has nothing meaningful to grant.
 - **Sign with a stable identity.** macOS ties grants to the code signature. An ad-hoc signature
   changes on every build, so earlier grants quietly stop matching.
+- **Describe Camera and Microphone use.** If you list `.camera` or `.microphone`, add
+  `NSCameraUsageDescription` / `NSMicrophoneUsageDescription` to your Info.plist (macOS
+  terminates apps that ask without them). With Hardened Runtime on, also add the
+  `com.apple.security.device.camera` / `com.apple.security.device.audio-input` entitlements.
 - **Distribute outside the Mac App Store.** Status detection uses TCC's private
   `TCCAccessPreflight` (see [Status detection](#status-detection)). TrustMe has only been
   tested in apps without App Sandbox.
@@ -83,7 +88,8 @@ Things to know before shipping:
 import TrustMe
 
 // Lays itself out from the list: one row each, and a Continue button
-// that unlocks once the required ones are granted.
+// that unlocks once the required ones are granted. Mix drag-based and
+// prompt-based (camera, microphone) permissions freely.
 PermissionsWindow.show([.accessibility, .screenRecording], optional: [.fullDiskAccess]) { allGranted in
     startApp()
 }
@@ -114,10 +120,12 @@ Or drive everything yourself:
 
 ```swift
 PermissionFlow.shared.authorize(.screenRecording)   // opens Settings + the drag band
+PermissionFlow.shared.authorize(.camera)            // system prompt, or its Settings pane once refused
 PermissionCenter.shared.status(of: .accessibility)   // .granted / .needsRelaunch / .notGranted / .unknown
 ```
 
 Custom permissions: `Permission(id:title:summary:systemImage:tint:settingsAnchor:check:)`.
+Pass `canRequest:` and `request:` as well for one granted through a system prompt.
 
 ### Status detection
 
