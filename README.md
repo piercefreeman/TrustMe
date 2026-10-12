@@ -32,21 +32,20 @@ permissions list. No popups required.
 ## Getting started
 
 TrustMe is a Swift package. It needs macOS 14 or later and Xcode 26 or later to build, since
-the glass uses macOS 26 APIs where they're available. There are no tagged releases yet, so
-track the `main` branch.
+the glass uses macOS 26 APIs where they're available.
 
 ### In an Xcode app project
 
 1. **File › Add Package Dependencies…**
 2. Paste `https://github.com/piercefreeman/TrustMe` into the search field.
-3. Set **Dependency Rule** to **Branch** › `main`, then **Add Package**.
+3. Keep **Dependency Rule** at **Up to Next Major Version** from `0.1.0`, then **Add Package**.
 4. Add the **TrustMe** library to your app target. Skip `TrustMeDemo`, which is the demo app.
 
 ### In a Package.swift
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/piercefreeman/TrustMe.git", branch: "main"),
+    .package(url: "https://github.com/piercefreeman/TrustMe.git", from: "0.1.0"),
 ],
 targets: [
     .executableTarget(
