@@ -1,8 +1,11 @@
 # TrustMe
 
-Drag-to-authorize macOS permissions. Click a button, System Settings opens on the right
-Privacy & Security pane, and a glass band representing your app floats next to it.
-Drag the band into the list and you're done.
+TrustMe is a better UI for Mac apps to request permissions.
+
+Instead of contending with ten separate setting popups provided by the main OS, manage
+the whole flow in your own application. Tell TrustMe what permissions you need, and have it
+present a beautiful window where users can drag and drop your app into their authorized
+permissions list. No popups required.
 
 <table>
   <tr>
