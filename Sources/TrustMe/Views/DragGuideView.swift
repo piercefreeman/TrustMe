@@ -25,6 +25,17 @@ final class GuideModel {
         self.permission = permission
         self.app = app
     }
+
+    /// The band's second line for the current phase.
+    var caption: String {
+        switch phase {
+        case .waiting, .dragging: "Drag into the list \(edge.direction) to allow"
+        case .dropped: "Approve with Touch ID or your password"
+        case .stalled: "Not showing up yet.\nSelect it, click \u{2212}, then drag again."
+        case .needsRelaunch: "Allowed. Relaunch to apply it."
+        case .granted: "\(permission.title) allowed"
+        }
+    }
 }
 
 /// The floating panel: a single pane of glass that *is* the app — pick it
@@ -76,7 +87,7 @@ struct DragGuideView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(model.app.name)
                     .font(.system(size: 13, weight: .semibold))
-                Text(caption)
+                Text(model.caption)
                     .font(.system(size: 11.5))
                     .foregroundStyle(.secondary)
                     .contentTransition(.interpolate)
@@ -132,16 +143,6 @@ struct DragGuideView: View {
                     }
                 )
             }
-        }
-    }
-
-    private var caption: String {
-        return switch model.phase {
-        case .waiting, .dragging: "Drag into the list \(model.edge.direction) to allow"
-        case .dropped: "Approve with Touch ID or your password"
-        case .stalled: "Not showing up yet.\nSelect it, click \u{2212}, then drag again."
-        case .needsRelaunch: "Allowed. Relaunch to apply it."
-        case .granted: "\(model.permission.title) allowed"
         }
     }
 

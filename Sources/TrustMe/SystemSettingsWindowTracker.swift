@@ -34,9 +34,11 @@ enum SystemSettingsWindow {
     }
 
     /// Window Server rects are top-left based on the primary display.
-    static func cocoaRect(fromWindowServer rect: CGRect) -> CGRect {
-        let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
-        return CGRect(x: rect.minX, y: primaryHeight - rect.maxY, width: rect.width, height: rect.height)
+    static func cocoaRect(
+        fromWindowServer rect: CGRect,
+        primaryHeight: CGFloat = NSScreen.screens.first?.frame.height ?? 0
+    ) -> CGRect {
+        CGRect(x: rect.minX, y: primaryHeight - rect.maxY, width: rect.width, height: rect.height)
     }
 }
 
@@ -60,9 +62,15 @@ enum GuidePlacement {
 
     /// Chooses a spot next to the settings window, preferring the space under
     /// its content pane (where the app list lives).
+    @MainActor
     static func place(panelSize size: CGSize, beside settings: CGRect) -> (CGPoint, GuideEdge) {
         let screen = NSScreen.screens.first { $0.frame.intersects(settings) } ?? NSScreen.main
         let visible = screen?.visibleFrame ?? settings.insetBy(dx: -2000, dy: -2000)
+        return place(panelSize: size, beside: settings, within: visible)
+    }
+
+    /// - Parameter visible: The usable area of the screen holding the window.
+    static func place(panelSize size: CGSize, beside settings: CGRect, within visible: CGRect) -> (CGPoint, GuideEdge) {
 
         // The privacy list occupies the pane to the right of the sidebar.
         let sidebar = min(260, settings.width * 0.32)

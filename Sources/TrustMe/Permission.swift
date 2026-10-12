@@ -150,8 +150,15 @@ public extension Permission {
 /// for the life of the process; TCC knows sooner, so a grant that hasn't
 /// taken effect yet reads as `needsRelaunch`.
 private func liveOrPendingRelaunch(_ live: Bool, service: String) -> PermissionStatus {
-    if live { return .granted }
-    return TCC.status(service) == .granted ? .needsRelaunch : .notGranted
+    PermissionStatus.resolve(live: live, tcc: live ? nil : TCC.status(service))
+}
+
+extension PermissionStatus {
+    /// Combines a public API's cached answer with TCC's current one.
+    static func resolve(live: Bool, tcc: PermissionStatus?) -> PermissionStatus {
+        if live { return .granted }
+        return tcc == .granted ? .needsRelaunch : .notGranted
+    }
 }
 
 /// Reads this app's authorization straight from TCC, without prompting.
@@ -188,8 +195,8 @@ enum TCC {
 }
 
 /// Asks TCC from a new process: the app's own executable, relaunched with
-/// `TRUSTME_TCC_PROBE` set, which the TrustMeProbe constructor answers via its
-/// exit code before the app starts. Results are reused for a couple of seconds.
+/// `TRUSTME_TCC_PROBE` set, which the TrustMeProbe constructor answers on
+/// stdout before the app starts. Results are reused for a couple of seconds.
 enum FreshProbe {
     nonisolated(unsafe) private static var cache: [String: (status: PermissionStatus?, at: Date)] = [:]
     private static let lock = NSLock()
@@ -200,23 +207,56 @@ enum FreshProbe {
         if let cached = cache[service], Date().timeIntervalSince(cached.at) < 2 { return cached.status }
 
         trustme_probe_anchor()
-        guard let executable = Bundle.main.executableURL else { return nil }
-        let process = Process()
-        process.executableURL = executable
-        process.environment = ["TRUSTME_TCC_PROBE": "kTCCService\(service)"]
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
-
-        var result: PermissionStatus?
-        if (try? process.run()) != nil {
-            process.waitUntilExit()
-            switch process.terminationStatus {
-            case 0: result = .granted
-            case 1: result = .notGranted
-            default: result = nil
-            }
-        }
+        // Only re-execute a real app: a test runner or CLI tool would just run
+        // again, and a probe must never start probes of its own.
+        guard Bundle.main.bundleURL.pathExtension == "app",
+              ProcessInfo.processInfo.environment["TRUSTME_TCC_PROBE"] == nil
+        else { return nil }
+        let result = Bundle.main.executableURL.flatMap { run(service: "kTCCService\(service)", executable: $0) }
         cache[service] = (result, Date())
         return result
+    }
+
+    /// Runs `executable` as a probe. Returns nil unless it answers with the
+    /// probe token in time — e.g. when TrustMe isn't linked into it, so the
+    /// constructor never ran and the program just started normally.
+    static func run(service: String, executable: URL, timeout: TimeInterval = 2) -> PermissionStatus? {
+        let process = Process()
+        process.executableURL = executable
+        process.environment = ["TRUSTME_TCC_PROBE": service]
+        let output = Pipe()
+        process.standardOutput = output
+        process.standardError = FileHandle.nullDevice
+
+        let exited = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in exited.signal() }
+        guard (try? process.run()) != nil else { return nil }
+
+        // Read concurrently so a chatty program can't block on a full pipe.
+        // Only touched before `readDone` is signalled and after it's awaited.
+        final class Box: @unchecked Sendable { var data = Data() }
+        let box = Box()
+        let readDone = DispatchSemaphore(value: 0)
+        DispatchQueue.global().async {
+            box.data = output.fileHandleForReading.readDataToEndOfFile()
+            readDone.signal()
+        }
+
+        if exited.wait(timeout: .now() + timeout) == .timedOut {
+            process.terminate()
+            kill(process.processIdentifier, SIGKILL)
+            _ = readDone.wait(timeout: .now() + 1)
+            return nil
+        }
+        guard readDone.wait(timeout: .now() + 1) == .success,
+              let text = String(data: box.data, encoding: .utf8),
+              let line = text.split(separator: "\n").first(where: { $0.hasPrefix("TRUSTME_PROBE:") })
+        else { return nil }
+
+        switch line.dropFirst("TRUSTME_PROBE:".count) {
+        case "0": return .granted
+        case "1": return .notGranted
+        default: return nil
+        }
     }
 }

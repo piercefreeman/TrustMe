@@ -25,9 +25,7 @@ public enum Relauncher {
         guard !isInstalled else { return }
         isInstalled = true
 
-        let defaults = UserDefaults.standard
-        wasRelaunchedForPermissions = defaults.bool(forKey: resumeKey)
-        defaults.removeObject(forKey: resumeKey)
+        wasRelaunchedForPermissions = consumeResumeFlag(in: .standard)
 
         NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification, object: nil, queue: nil
@@ -37,6 +35,17 @@ public enum Relauncher {
                 scheduleRelaunch()
             }
         }
+    }
+
+    /// Reads and clears the flag a TrustMe relaunch leaves behind.
+    static func consumeResumeFlag(in defaults: UserDefaults) -> Bool {
+        let flag = defaults.bool(forKey: resumeKey)
+        defaults.removeObject(forKey: resumeKey)
+        return flag
+    }
+
+    static func setResumeFlag(in defaults: UserDefaults) {
+        defaults.set(true, forKey: resumeKey)
     }
 
     /// Quits and reopens the app, e.g. after granting a permission that only
@@ -49,7 +58,7 @@ public enum Relauncher {
     /// Starts a detached helper that waits for this process to exit, then
     /// reopens the bundle. It outlives us because it isn't our child job.
     private static func scheduleRelaunch() {
-        UserDefaults.standard.set(true, forKey: resumeKey)
+        setResumeFlag(in: .standard)
         UserDefaults.standard.synchronize()
 
         let pid = ProcessInfo.processInfo.processIdentifier

@@ -104,6 +104,16 @@ showing the old entry switched on.
 
 `--auto-request accessibility` starts a flow at launch.
 
+## Tests
+
+```sh
+swift test
+```
+
+Covers placement, status resolution, the fresh-process TCC probe, the relaunch flag and
+view layout. CI runs them on a `macos-26` runner (the glass code needs the Xcode 26 SDK)
+and builds the demo bundle.
+
 ## Design renders
 
 `TrustMeRender` composites the real guide panel in every state (waiting, hover, dropped,
