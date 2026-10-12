@@ -28,6 +28,53 @@ permissions list. No popups required.
 - Auto detection of your app and design
 - Beautiful glassy UI ready for macOS 26
 
+## Getting started
+
+TrustMe is a Swift package. It needs macOS 14 or later and Xcode 26 or later to build, since
+the glass uses macOS 26 APIs where they're available. There are no tagged releases yet, so
+track the `main` branch.
+
+### In an Xcode app project
+
+1. **File › Add Package Dependencies…**
+2. Paste `https://github.com/piercefreeman/TrustMe` into the search field.
+3. Set **Dependency Rule** to **Branch** › `main`, then **Add Package**.
+4. Add the **TrustMe** library to your app target. Skip `TrustMeDemo`, which is the demo app.
+
+### In a Package.swift
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/piercefreeman/TrustMe.git", branch: "main"),
+],
+targets: [
+    .executableTarget(
+        name: "YourApp",
+        dependencies: [.product(name: "TrustMe", package: "TrustMe")]
+    ),
+]
+```
+
+### Then
+
+```swift
+import TrustMe
+
+PermissionsWindow.show([.accessibility, .screenRecording]) { allGranted in
+    // continue onboarding
+}
+```
+
+Things to know before shipping:
+
+- **Run as a real `.app` bundle.** The bundle is what users drag into System Settings, so
+  `swift run` of a bare executable has nothing meaningful to grant.
+- **Sign with a stable identity.** macOS ties grants to the code signature. An ad-hoc signature
+  changes on every build, so earlier grants quietly stop matching.
+- **Distribute outside the Mac App Store.** Status detection uses TCC's private
+  `TCCAccessPreflight` (see [Status detection](#status-detection)). TrustMe has only been
+  tested in apps without App Sandbox.
+
 ## Usage
 
 ### Drop-in window
