@@ -9,7 +9,8 @@ let package = Package(
         .executable(name: "TrustMeDemo", targets: ["TrustMeDemo"]),
     ],
     targets: [
-        .target(name: "TrustMe"),
+        .target(name: "TrustMe", dependencies: ["TrustMeProbe"]),
+        .target(name: "TrustMeProbe"),
         .executableTarget(name: "TrustMeDemo", dependencies: ["TrustMe"]),
         // Dev tool: composites real guide panels over a backdrop and screenshots them.
         .executableTarget(name: "TrustMeRender", dependencies: ["TrustMe"]),

@@ -4,11 +4,26 @@ Drag-to-authorize macOS permissions. Click a button, System Settings opens on th
 Privacy & Security pane, and a glass band representing your app floats next to it.
 Drag the band into the list and you're done.
 
+<table>
+  <tr>
+    <td align="center" valign="top" width="58%">
+      <img src="docs/images/permissions-window.png" alt="The permissions window: one row per permission with Allow buttons and Granted checks" />
+    </td>
+    <td align="center" valign="top" width="42%">
+      <img src="docs/images/drag-into-settings.png" alt="The glass band docked under System Settings' Accessibility list, ready to drag" />
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><b>1.</b> Your app lists what it needs. Click <b>Allow</b>.</td>
+    <td align="center"><b>2.</b> Drag the band into the list. It switches to Granted on its own.</td>
+  </tr>
+</table>
+
 - Floating glass panel docked to the System Settings window: waits for the window to
   settle before appearing in place, follows it as it moves, hides while Settings isn't in front
 - Native file drag of your `.app` bundle — the same pasteboard Finder produces
-- Live status for Accessibility, Screen Recording, Input Monitoring, Full Disk Access;
-  auto-dismisses with a success state once granted
+- Live status for Accessibility, Screen Recording, Input Monitoring, Full Disk Access,
+  App Management and Developer Tools; auto-dismisses with a success state once granted
 - Liquid Glass on macOS 26, a matching blur/rim/sheen recreation on macOS 14–15
 
 ## Usage

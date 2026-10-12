@@ -39,10 +39,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.regular)
         showOnboarding()
 
-        // `--auto-request <permission-id>` starts a flow on launch (handy for demos and screenshots).
+        // `--auto-request <permission-id>` starts a flow on launch (handy for demos and
+        // screenshots); `--auto-request-delay <seconds>` postpones it.
         if let index = args.firstIndex(of: "--auto-request"), index + 1 < args.count,
            let permission = permissions.first(where: { $0.id == args[index + 1] }) {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            let delay = args.firstIndex(of: "--auto-request-delay")
+                .flatMap { $0 + 1 < args.count ? Double(args[$0 + 1]) : nil } ?? 0.8
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                 PermissionFlow.shared.authorize(permission)
             }
         }

@@ -2,6 +2,7 @@ import AppKit
 import ApplicationServices
 import CoreGraphics
 import SwiftUI
+import TrustMeProbe
 
 /// The authorization state of a privacy permission.
 public enum PermissionStatus: Sendable, Equatable {
@@ -108,7 +109,7 @@ public extension Permission {
         settingsAnchor: "Privacy_AllFiles",
         tccService: "SystemPolicyAllFiles",
         check: {
-            if let status = TCC.status("SystemPolicyAllFiles") { return status }
+            if let status = TCC.currentStatus("SystemPolicyAllFiles") { return status }
             // The user TCC database is only readable with Full Disk Access.
             let path = NSHomeDirectory() + "/Library/Application Support/com.apple.TCC/TCC.db"
             guard FileManager.default.fileExists(atPath: path) else { return .unknown }
@@ -126,7 +127,7 @@ public extension Permission {
         tint: Color(red: 1.0, green: 0.58, blue: 0.18),
         settingsAnchor: "Privacy_AppBundles",
         tccService: "SystemPolicyAppBundles",
-        check: { TCC.status("SystemPolicyAppBundles") ?? .unknown }
+        check: { TCC.currentStatus("SystemPolicyAppBundles") ?? .unknown }
     )
 
     static let developerTools = Permission(
@@ -137,7 +138,7 @@ public extension Permission {
         tint: Color(red: 0.45, green: 0.5, blue: 0.6),
         settingsAnchor: "Privacy_DevTools",
         tccService: "DeveloperTool",
-        check: { TCC.status("DeveloperTool") ?? .unknown }
+        check: { TCC.currentStatus("DeveloperTool") ?? .unknown }
     )
 
     static let allDraggable: [Permission] = [
@@ -168,6 +169,14 @@ enum TCC {
         return unsafeBitCast(symbol, to: Preflight.self)
     }()
 
+    /// Like ``status(_:)``, but double-checks a denial from a fresh process,
+    /// since in-process answers can stay stuck on "denied" after a grant.
+    static func currentStatus(_ service: String) -> PermissionStatus? {
+        let local = status(service)
+        guard local == .notGranted else { return local }
+        return FreshProbe.status(service) ?? local
+    }
+
     static func status(_ service: String) -> PermissionStatus? {
         guard let preflight else { return nil }
         switch preflight("kTCCService\(service)" as CFString, nil) {
@@ -175,5 +184,39 @@ enum TCC {
         case 1: return .notGranted
         default: return nil
         }
+    }
+}
+
+/// Asks TCC from a new process: the app's own executable, relaunched with
+/// `TRUSTME_TCC_PROBE` set, which the TrustMeProbe constructor answers via its
+/// exit code before the app starts. Results are reused for a couple of seconds.
+enum FreshProbe {
+    nonisolated(unsafe) private static var cache: [String: (status: PermissionStatus?, at: Date)] = [:]
+    private static let lock = NSLock()
+
+    static func status(_ service: String) -> PermissionStatus? {
+        lock.lock()
+        defer { lock.unlock() }
+        if let cached = cache[service], Date().timeIntervalSince(cached.at) < 2 { return cached.status }
+
+        trustme_probe_anchor()
+        guard let executable = Bundle.main.executableURL else { return nil }
+        let process = Process()
+        process.executableURL = executable
+        process.environment = ["TRUSTME_TCC_PROBE": "kTCCService\(service)"]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+
+        var result: PermissionStatus?
+        if (try? process.run()) != nil {
+            process.waitUntilExit()
+            switch process.terminationStatus {
+            case 0: result = .granted
+            case 1: result = .notGranted
+            default: result = nil
+            }
+        }
+        cache[service] = (result, Date())
+        return result
     }
 }
