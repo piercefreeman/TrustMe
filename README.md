@@ -6,10 +6,10 @@ Drag the band into the list and you're done.
 
 <table>
   <tr>
-    <td align="center" valign="top" width="58%">
+    <td align="center" valign="middle" width="50%">
       <img src="docs/images/permissions-window.png" alt="The permissions window: one row per permission with Allow buttons and Granted checks" />
     </td>
-    <td align="center" valign="top" width="42%">
+    <td align="center" valign="middle" width="50%">
       <img src="docs/images/drag-into-settings.png" alt="The glass band docked under System Settings' Accessibility list, ready to drag" />
     </td>
   </tr>
