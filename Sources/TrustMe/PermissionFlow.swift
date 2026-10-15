@@ -72,7 +72,7 @@ public final class PermissionFlow {
 
         if permission.isPromptBased {
             guard permission.canRequest() else {
-                NSWorkspace.shared.open(permission.settingsURL)
+                SettingsDodge.open(permission.settingsURL)
                 return
             }
             Task { @MainActor [weak self] in

@@ -123,6 +123,21 @@ PermissionFlow.shared.authorize(.camera)            // system prompt, or its Set
 PermissionCenter.shared.status(of: .accessibility)   // .granted / .needsRelaunch / .notGranted / .unknown
 ```
 
+### Keeping System Settings in view
+
+If your onboarding window floats, or just sits where System Settings opens, it can hide
+the list the person needs. `SettingsDodge` slides it aside while Settings is underneath
+it and back once the permission is granted. `PermissionsWindow` does this for itself.
+
+```swift
+let dodge = SettingsDodge(window: onboardingWindow)
+dodge.start()                    // follows PermissionFlow.shared's grants
+SettingsDodge.open(paneURL)      // your own trips to Settings, back once it closes
+dodge.stop()
+```
+
+A click on the window while it's aside leaves it there for the rest of that trip.
+
 Custom permissions: `Permission(id:title:summary:systemImage:tint:settingsAnchor:check:)`.
 Pass `canRequest:` and `request:` as well for one granted through a system prompt.
 
