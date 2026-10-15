@@ -18,7 +18,8 @@ final class DodgeRig {
     let window: NSWindow
     private(set) var dodge: SettingsDodge!
 
-    init() {
+    /// - Parameter locate: Finds Settings for real; by default the test plays it with ``settings``.
+    init(locate: (@MainActor (NSWindow) -> (frame: CGRect, isBehind: Bool)?)? = nil) {
         _ = NSApplication.shared
         screen = NSScreen.screens.first!.visibleFrame
         let size = CGSize(width: 600, height: 400)
@@ -30,7 +31,7 @@ final class DodgeRig {
         window.orderFrontRegardless()
         dodge = SettingsDodge(window: window, activePermission: { [unowned self] in active },
                               status: { [unowned self] _ in status },
-                              settings: { [unowned self] _ in settings }, now: { [unowned self] in now })
+                              settings: locate ?? { [unowned self] _ in settings }, now: { [unowned self] in now })
     }
 
     func close() {

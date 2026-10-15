@@ -62,7 +62,7 @@ public final class SettingsDodge {
     public convenience init(window: NSWindow, flow: PermissionFlow = .shared) {
         self.init(window: window, activePermission: { flow.activePermission },
                   status: { PermissionCenter.shared.status(of: $0) },
-                  settings: Self.settingsWindow(relativeTo:), now: Date.init)
+                  settings: { SystemSettingsWindow.locate(above: $0.windowNumber) }, now: Date.init)
     }
 
     /// Everything the dodge reads from the system, so tests can stand in for it.
@@ -209,37 +209,5 @@ public final class SettingsDodge {
         let x = goLeft ? visible.minX + max(leftRoom, minimumShown) - size.width
                        : visible.maxX - max(rightRoom, minimumShown)
         return CGRect(x: x, y: y, width: size.width, height: size.height)
-    }
-
-    /// System Settings' frontmost on-screen window, in Cocoa coordinates, and
-    /// whether `window` is stacked above it. Window bounds and stacking order
-    /// don't need Screen Recording.
-    static func settingsWindow(relativeTo window: NSWindow) -> (frame: CGRect, isBehind: Bool)? {
-        let pids = Set(
-            NSRunningApplication.runningApplications(withBundleIdentifier: SystemSettingsWindow.bundleIdentifier)
-                .map(\.processIdentifier)
-        )
-        guard !pids.isEmpty,
-              let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
-                as? [[String: Any]] else { return nil }
-        return frontmostSettings(in: list, pids: pids, above: window.windowNumber,
-                                 primaryHeight: NSScreen.screens.first?.frame.height ?? 0)
-    }
-
-    /// The first sizeable normal window owned by `pids` in a front-to-back
-    /// window list, and whether window `number` comes before it.
-    nonisolated static func frontmostSettings(in list: [[String: Any]], pids: Set<pid_t>, above number: Int,
-                                              primaryHeight: CGFloat) -> (frame: CGRect, isBehind: Bool)? {
-        var seenAbove = false
-        for info in list {
-            if (info[kCGWindowNumber as String] as? Int) == number { seenAbove = true }
-            guard let pid = info[kCGWindowOwnerPID as String] as? pid_t, pids.contains(pid),
-                  (info[kCGWindowLayer as String] as? Int) == 0,
-                  let boundsDict = info[kCGWindowBounds as String] as? NSDictionary,
-                  let bounds = CGRect(dictionaryRepresentation: boundsDict),
-                  bounds.width > 300, bounds.height > 200 else { continue }
-            return (CGRect(x: bounds.minX, y: primaryHeight - bounds.maxY, width: bounds.width, height: bounds.height), seenAbove)
-        }
-        return nil
     }
 }

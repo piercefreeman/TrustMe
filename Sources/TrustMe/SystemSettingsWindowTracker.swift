@@ -9,35 +9,48 @@ enum SystemSettingsWindow {
 
     /// The main System Settings window frame in Cocoa screen coordinates
     /// (origin bottom-left of the primary display), or nil if none is visible.
-    static func currentFrame() -> CGRect? {
+    static func currentFrame() -> CGRect? { locate(above: nil)?.frame }
+
+    /// System Settings' frontmost on-screen window, and whether window
+    /// `number` is stacked above it.
+    static func locate(above number: Int?) -> (frame: CGRect, isBehind: Bool)? {
         let pids = Set(
             NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier)
                 .map(\.processIdentifier)
         )
+        return locate(owners: pids, above: number)
+    }
+
+    /// The frontmost on-screen window owned by `owners`, read live from the
+    /// Window Server. Window bounds and stacking order don't need Screen Recording.
+    static func locate(owners pids: Set<pid_t>, above number: Int?) -> (frame: CGRect, isBehind: Bool)? {
         guard !pids.isEmpty,
               let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
                 as? [[String: Any]]
         else { return nil }
+        return frontmost(in: list, pids: pids, above: number, primaryHeight: NSScreen.screens.first?.frame.height ?? 0)
+    }
 
-        // Windows are ordered front to back; the first sizeable normal-layer
-        // window owned by System Settings is the one the user is looking at.
+    /// The first sizeable normal window owned by `pids` in a front-to-back
+    /// window list, and whether window `number` comes before it.
+    nonisolated static func frontmost(in list: [[String: Any]], pids: Set<pid_t>, above number: Int?,
+                                      primaryHeight: CGFloat) -> (frame: CGRect, isBehind: Bool)? {
+        var seenAbove = false
         for info in list {
+            if let number, (info[kCGWindowNumber as String] as? Int) == number { seenAbove = true }
             guard let pid = info[kCGWindowOwnerPID as String] as? pid_t, pids.contains(pid),
                   (info[kCGWindowLayer as String] as? Int) == 0,
                   let boundsDict = info[kCGWindowBounds as String] as? NSDictionary,
                   let bounds = CGRect(dictionaryRepresentation: boundsDict),
                   bounds.width > 300, bounds.height > 200
             else { continue }
-            return cocoaRect(fromWindowServer: bounds)
+            return (cocoaRect(fromWindowServer: bounds, primaryHeight: primaryHeight), seenAbove)
         }
         return nil
     }
 
     /// Window Server rects are top-left based on the primary display.
-    static func cocoaRect(
-        fromWindowServer rect: CGRect,
-        primaryHeight: CGFloat = NSScreen.screens.first?.frame.height ?? 0
-    ) -> CGRect {
+    nonisolated static func cocoaRect(fromWindowServer rect: CGRect, primaryHeight: CGFloat) -> CGRect {
         CGRect(x: rect.minX, y: primaryHeight - rect.maxY, width: rect.width, height: rect.height)
     }
 }

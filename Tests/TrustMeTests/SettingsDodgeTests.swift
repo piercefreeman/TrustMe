@@ -57,7 +57,7 @@ struct SettingsDodgeTests {
     @Test("Settings listed after the window is behind it, in Cocoa coordinates")
     func behind() {
         let list = [entry(7, pid: 1, layer: 3, bounds: centered), entry(9, pid: 42, bounds: CGRect(x: 100, y: 50, width: 715, height: 650))]
-        let found = SettingsDodge.frontmostSettings(in: list, pids: [42], above: 7, primaryHeight: 900)
+        let found = SystemSettingsWindow.frontmost(in: list, pids: [42], above: 7, primaryHeight: 900)
         #expect(found?.isBehind == true)
         #expect(found?.frame == CGRect(x: 100, y: 200, width: 715, height: 650))
     }
@@ -65,7 +65,7 @@ struct SettingsDodgeTests {
     @Test("Settings listed before the window is in front of it")
     func inFront() {
         let list = [entry(9, pid: 42, bounds: CGRect(x: 100, y: 50, width: 715, height: 650)), entry(7, pid: 1, bounds: centered)]
-        #expect(SettingsDodge.frontmostSettings(in: list, pids: [42], above: 7, primaryHeight: 900)?.isBehind == false)
+        #expect(SystemSettingsWindow.frontmost(in: list, pids: [42], above: 7, primaryHeight: 900)?.isBehind == false)
     }
 
     @Test("Skips Settings' sheets and small windows")
@@ -74,11 +74,11 @@ struct SettingsDodgeTests {
                     entry(8, pid: 42, layer: 8, bounds: CGRect(x: 0, y: 0, width: 800, height: 600)),
                     entry(9, pid: 42, bounds: CGRect(x: 0, y: 0, width: 200, height: 100)),
                     entry(10, pid: 42, bounds: CGRect(x: 100, y: 50, width: 715, height: 650))]
-        #expect(SettingsDodge.frontmostSettings(in: list, pids: [42], above: 7, primaryHeight: 900)?.frame.width == 715)
+        #expect(SystemSettingsWindow.frontmost(in: list, pids: [42], above: 7, primaryHeight: 900)?.frame.width == 715)
     }
 
     @Test("No Settings window")
     func none() {
-        #expect(SettingsDodge.frontmostSettings(in: [entry(7, pid: 1, bounds: centered)], pids: [42], above: 7, primaryHeight: 900) == nil)
+        #expect(SystemSettingsWindow.frontmost(in: [entry(7, pid: 1, bounds: centered)], pids: [42], above: 7, primaryHeight: 900) == nil)
     }
 }

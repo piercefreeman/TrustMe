@@ -16,6 +16,8 @@ let package = Package(
         .executableTarget(name: "TrustMeRender", dependencies: ["TrustMe"]),
         // Minimal executable linking TrustMe, so tests can exercise the TCC probe.
         .executableTarget(name: "TrustMeProbeHost", dependencies: ["TrustMe"], path: "Tests/ProbeHost"),
-        .testTarget(name: "TrustMeTests", dependencies: ["TrustMe", "TrustMeProbeHost"]),
+        // Another process with a real window, standing in for System Settings.
+        .executableTarget(name: "TrustMeWindowHost", path: "Tests/WindowHost"),
+        .testTarget(name: "TrustMeTests", dependencies: ["TrustMe", "TrustMeProbeHost", "TrustMeWindowHost"]),
     ]
 )

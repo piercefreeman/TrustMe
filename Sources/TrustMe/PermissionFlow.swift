@@ -49,8 +49,28 @@ public final class PermissionFlow {
 
     public private(set) var activePermission: Permission?
 
-    @ObservationIgnored private var panel: GuidePanel?
-    @ObservationIgnored private var model: GuideModel?
+    /// What the flow reads from and does to the system, so tests can stand in for it.
+    struct System {
+        var settingsFrame: @MainActor () -> CGRect? = SystemSettingsWindow.currentFrame
+        var settingsInFront: @MainActor () -> Bool = {
+            NSWorkspace.shared.frontmostApplication?.bundleIdentifier == SystemSettingsWindow.bundleIdentifier
+        }
+        var settingsRunning: @MainActor () -> Bool = {
+            !NSRunningApplication.runningApplications(withBundleIdentifier: SystemSettingsWindow.bundleIdentifier).isEmpty
+        }
+        var status: @MainActor (Permission) -> PermissionStatus = { $0.currentStatus() }
+        var open: @MainActor (URL) -> Void = { NSWorkspace.shared.open($0) }
+        var now: @MainActor () -> Date = Date.init
+        var after: @MainActor (TimeInterval, @escaping @MainActor () -> Void) -> Void = { delay, work in
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { MainActor.assumeIsolated(work) }
+        }
+        /// Off in tests, which call ``PermissionFlow/step()`` themselves.
+        var runsTimer = true
+    }
+
+    @ObservationIgnored private let system: System
+    @ObservationIgnored private(set) var panel: GuidePanel?
+    @ObservationIgnored private(set) var model: GuideModel?
     @ObservationIgnored private var tick: Timer?
     @ObservationIgnored private var startedAt = Date()
     @ObservationIgnored private var lastSettingsFrame: CGRect?
@@ -58,7 +78,10 @@ public final class PermissionFlow {
     @ObservationIgnored private var missingSince: Date?
     @ObservationIgnored private var hasPresented = false
 
-    public init() {
+    public convenience init() { self.init(system: System()) }
+
+    init(system: System) {
+        self.system = system
         Relauncher.install()
     }
 
@@ -85,9 +108,10 @@ public final class PermissionFlow {
 
         let model = GuideModel(permission: permission, app: app ?? .current)
         model.onClose = { [weak self] in self?.dismiss() }
+        model.after = system.after
         self.model = model
         self.activePermission = permission
-        startedAt = Date()
+        startedAt = system.now()
         lastSettingsFrame = nil
         settingsStableSince = nil
         missingSince = nil
@@ -99,8 +123,9 @@ public final class PermissionFlow {
         panel.contentView = hosting
         self.panel = panel
 
-        NSWorkspace.shared.open(permission.settingsURL)
+        system.open(permission.settingsURL)
 
+        guard system.runsTimer else { return }
         tick = Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.step() }
         }
@@ -132,17 +157,17 @@ public final class PermissionFlow {
 
     @ObservationIgnored private var statusCheckCounter = 0
 
-    private func step() {
+    /// One frame: called by the timer, or directly by tests.
+    func step() {
         guard let panel, let model else { return }
 
         statusCheckCounter += 1
         if statusCheckCounter % 20 == 0 { checkStatus(model) }
 
-        let settings = SystemSettingsWindow.currentFrame()
+        let settings = system.settingsFrame()
         // Only float over System Settings while the user is looking at it:
         // "drag into the list above" means nothing with Settings out of sight.
-        let settingsInFront = NSWorkspace.shared.frontmostApplication?.bundleIdentifier == SystemSettingsWindow.bundleIdentifier
-            || model.phase == .dragging
+        let settingsInFront = system.settingsInFront() || model.phase == .dragging
 
         if !hasPresented {
             if let settings, settingsInFront {
@@ -150,10 +175,10 @@ public final class PermissionFlow {
                 // and navigating: its frame must hold still before we appear.
                 if settings != lastSettingsFrame {
                     lastSettingsFrame = settings
-                    settingsStableSince = Date()
+                    settingsStableSince = system.now()
                     return
                 }
-                guard let since = settingsStableSince, Date().timeIntervalSince(since) > 0.3 else { return }
+                guard let since = settingsStableSince, system.now().timeIntervalSince(since) > 0.3 else { return }
                 present(panel, model, beside: settings)
             }
             return
@@ -176,10 +201,10 @@ public final class PermissionFlow {
             }
         } else if lastSettingsFrame != nil {
             // Settings closed, minimized, or moved to another Space.
-            let since = missingSince ?? Date()
+            let since = missingSince ?? system.now()
             missingSince = since
-            if Date().timeIntervalSince(since) > 0.6 {
-                if NSRunningApplication.runningApplications(withBundleIdentifier: SystemSettingsWindow.bundleIdentifier).isEmpty {
+            if system.now().timeIntervalSince(since) > 0.6 {
+                if !system.settingsRunning() {
                     dismiss()
                 } else if panel.isVisible {
                     panel.orderOut(nil)
@@ -210,7 +235,7 @@ public final class PermissionFlow {
 
     private func checkStatus(_ model: GuideModel) {
         guard model.phase != .granted, model.phase != .needsRelaunch else { return }
-        let status = model.permission.currentStatus()
+        let status = system.status(model.permission)
         guard status == .granted || status == .needsRelaunch else { return }
         PermissionCenter.shared.refresh()
         let permission = model.permission
@@ -221,12 +246,10 @@ public final class PermissionFlow {
         model.phase = .granted
 
         guard dismissesOnGrant else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) { [weak self] in
-            MainActor.assumeIsolated {
-                guard let self, self.model === model else { return }
-                self.dismiss()
-                if self.activatesAppOnGrant { NSApp.activate(ignoringOtherApps: true) }
-            }
+        system.after(1.4) { [weak self] in
+            guard let self, self.model === model else { return }
+            self.dismiss()
+            if self.activatesAppOnGrant { NSApp.activate(ignoringOtherApps: true) }
         }
     }
 }
