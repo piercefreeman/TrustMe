@@ -68,3 +68,5 @@ build/
 .swiftpm/
 ## macOS
 .DS_Store
+## Wallpaper captured by the demo video scripts
+DemoVideos/Assets/
