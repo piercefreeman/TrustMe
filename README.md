@@ -158,6 +158,15 @@ showing the old entry switched on.
 
 `--auto-request accessibility` starts a flow at launch.
 
+The full-screen animations used for the demo videos (the popup storm and the scripted
+drag) live in [`DemoVideos/`](DemoVideos/README.md):
+
+```sh
+Scripts/build-demo.sh
+DemoVideos/popups.sh
+DemoVideos/drag.sh
+```
+
 ## Tests
 
 ```sh
