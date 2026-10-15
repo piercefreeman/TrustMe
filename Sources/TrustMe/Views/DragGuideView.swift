@@ -20,6 +20,13 @@ final class GuideModel {
     /// Freezes ambient animation (sheen, cue motion) for still renders.
     var isStill = false
     @ObservationIgnored var onClose: () -> Void = {}
+    /// Runs work later; the flow hands in its own so tests control time.
+    @ObservationIgnored var after: @MainActor (TimeInterval, @escaping @MainActor () -> Void) -> Void = { delay, work in
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { MainActor.assumeIsolated(work) }
+    }
+
+    /// How long after a drop with no grant before the band suggests a fix.
+    static let stallDelay: TimeInterval = 4
 
     init(permission: Permission, app: AppIdentity) {
         self.permission = permission
@@ -34,6 +41,17 @@ final class GuideModel {
         case .stalled: "Not showing up yet.\nSelect it, click \u{2212}, then drag again."
         case .needsRelaunch: "Allowed. Relaunch to apply it."
         case .granted: "\(permission.title) allowed"
+        }
+    }
+
+    func dragBegan() { phase = .dragging }
+
+    func dragEnded(dropped: Bool) {
+        guard phase == .dragging else { return }
+        phase = dropped ? .dropped : .waiting
+        guard dropped else { return }
+        after(Self.stallDelay) { [weak self] in
+            if let self, phase == .dropped { phase = .stalled }
         }
     }
 }
@@ -132,15 +150,8 @@ struct DragGuideView: View {
                     dragImage: dragImage,
                     onHover: { model.isHovering = $0 },
                     onPress: { model.isPressed = $0 },
-                    onDragBegan: { model.phase = .dragging },
-                    onDragEnded: { dropped in
-                        guard model.phase == .dragging else { return }
-                        model.phase = dropped ? .dropped : .waiting
-                        guard dropped else { return }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
-                            if model.phase == .dropped { model.phase = .stalled }
-                        }
-                    }
+                    onDragBegan: model.dragBegan,
+                    onDragEnded: { model.dragEnded(dropped: $0) }
                 )
             }
         }
