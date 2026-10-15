@@ -22,9 +22,7 @@ final class DodgeRig {
     init(locate: (@MainActor (NSWindow) -> (frame: CGRect, isBehind: Bool)?)? = nil) {
         _ = NSApplication.shared
         screen = NSScreen.screens.first!.visibleFrame
-        let size = CGSize(width: 600, height: 400)
-        home = CGRect(x: (screen.midX - size.width / 2).rounded(), y: (screen.midY - size.height / 2).rounded(),
-                      width: size.width, height: size.height)
+        home = Self.home
         window = NSWindow(contentRect: home, styleMask: [.titled], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.setFrame(home, display: true)
@@ -48,10 +46,18 @@ final class DodgeRig {
         NSApp.sendEvent(event)
     }
 
-    /// A Settings-sized window over the right half of ours.
-    var overlapping: CGRect {
+    /// Where the window starts: centred on the main screen.
+    static var home: CGRect {
+        let screen = NSScreen.screens.first!.visibleFrame
+        return CGRect(x: (screen.midX - 300).rounded(), y: (screen.midY - 200).rounded(), width: 600, height: 400)
+    }
+
+    /// A Settings-sized window over the right half of `home`.
+    static func overlapping(_ home: CGRect) -> CGRect {
         CGRect(x: home.midX, y: home.midY - 300, width: 715, height: 600)
     }
+
+    var overlapping: CGRect { Self.overlapping(home) }
 
     /// Opens a pane with ``SettingsDodge/open(_:)``'s bookkeeping, minus Settings itself.
     func openPane() {

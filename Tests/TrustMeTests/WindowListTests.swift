@@ -162,7 +162,8 @@ struct WindowListTests {
 
     @Test("A dodge steps a real window off another process's window, and back once it's gone")
     func dodges() async throws {
-        let host = try await WindowHost(frame: settingsFrame)
+        // Over the right half of the dodging window, leaving room to its left on any screen.
+        let host = try await WindowHost(frame: DodgeRig.overlapping(DodgeRig.home))
         defer { host.stop() }
         let rig = DodgeRig { SystemSettingsWindow.locate(owners: [host.pid], above: $0.windowNumber) }
         defer { rig.close() }

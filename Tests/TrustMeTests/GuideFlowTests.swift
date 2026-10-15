@@ -148,9 +148,10 @@ struct GuideFlowTests {
         let rig = FlowRig()
         defer { rig.close() }
         rig.present()
-        // No room below any more: it moves to a side.
+        // No room below any more, but room on the right, on any screen size.
+        let width = min(715, rig.screen.width - 20 - GuidePlacement.gap - rig.panel!.frame.width - 20)
         rig.settings = CGRect(x: rig.screen.minX + 20, y: rig.screen.minY + 10,
-                              width: 715, height: rig.screen.height - 20)
+                              width: width, height: rig.screen.height - 20)
         rig.run()
         let (origin, edge) = rig.expected
         #expect(edge == .right)
