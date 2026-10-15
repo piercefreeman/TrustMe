@@ -24,7 +24,7 @@ public final class SettingsDodge {
     }
 
     /// When a Settings pane was last opened outside a grant.
-    private static var paneOpened: Date?
+    static var paneOpened: Date?
 
     /// Opens a System Settings pane, with every dodge ready to step aside for it.
     public static func open(_ url: URL) {
@@ -33,7 +33,10 @@ public final class SettingsDodge {
     }
 
     private weak var window: NSWindow?
-    private let flow: PermissionFlow
+    private let activePermission: @MainActor () -> Permission?
+    private let status: @MainActor (Permission) -> PermissionStatus
+    private let locateSettings: @MainActor (NSWindow) -> (frame: CGRect, isBehind: Bool)?
+    private let now: @MainActor () -> Date
     private var timer: Timer?
     private var clicks: Any?
     private var trip: Trip?
@@ -56,9 +59,23 @@ public final class SettingsDodge {
     static let paneWait: TimeInterval = 10
 
     /// - Parameter flow: The flow whose grants count as trips to Settings.
-    public init(window: NSWindow, flow: PermissionFlow = .shared) {
+    public convenience init(window: NSWindow, flow: PermissionFlow = .shared) {
+        self.init(window: window, activePermission: { flow.activePermission },
+                  status: { PermissionCenter.shared.status(of: $0) },
+                  settings: Self.settingsWindow(relativeTo:), now: Date.init)
+    }
+
+    /// Everything the dodge reads from the system, so tests can stand in for it.
+    init(window: NSWindow,
+         activePermission: @escaping @MainActor () -> Permission?,
+         status: @escaping @MainActor (Permission) -> PermissionStatus,
+         settings: @escaping @MainActor (NSWindow) -> (frame: CGRect, isBehind: Bool)?,
+         now: @escaping @MainActor () -> Date) {
         self.window = window
-        self.flow = flow
+        self.activePermission = activePermission
+        self.status = status
+        self.locateSettings = settings
+        self.now = now
         lastPane = Self.paneOpened
     }
 
@@ -88,7 +105,7 @@ public final class SettingsDodge {
 
     /// Only a click while aside counts: one before (Allow again, Open
     /// settings) mustn't stop the window from getting out of the way.
-    private func release() {
+    func release() {
         guard trip != nil, home != nil, !released else { return }
         released = true
         home = nil
@@ -115,22 +132,23 @@ public final class SettingsDodge {
         window.setFrame(home, display: true, animate: true)
     }
 
-    private func check() {
+    /// One tick of the watch: called by the timer, or directly by tests.
+    func check() {
         guard let window, window.isVisible else { return }
-        let active = flow.activePermission
+        let active = activePermission()
         if let active {
             if trip != .grant(active) { begin(.grant(active)) }
         } else if let opened = Self.paneOpened, opened != lastPane {
             lastPane = opened
             begin(.pane(opened))
         }
-        let settings = Self.settingsWindow(relativeTo: window)
+        let settings = locateSettings(window)
 
         switch trip {
         case nil:
             return
         case .grant(let permission):
-            let status = PermissionCenter.shared.status(of: permission)
+            let status = self.status(permission)
             if status == .granted || status == .needsRelaunch {
                 // Dragged in: the only time the window comes back.
                 comeBack()
@@ -145,7 +163,7 @@ public final class SettingsDodge {
                 return end()
             }
             // Never under the window (or never came): nothing to get out of the way of.
-            if home == nil, !released, Date().timeIntervalSince(opened) > Self.paneWait { return end() }
+            if home == nil, !released, now().timeIntervalSince(opened) > Self.paneWait { return end() }
         }
 
         guard !released else { return }
@@ -156,10 +174,10 @@ public final class SettingsDodge {
         }
         if settings.frame != lastSettings {
             lastSettings = settings.frame
-            settingsStableSince = Date()
+            settingsStableSince = now()
             return
         }
-        guard let since = settingsStableSince, Date().timeIntervalSince(since) >= Self.settle else { return }
+        guard let since = settingsStableSince, now().timeIntervalSince(since) >= Self.settle else { return }
         if let aside, window.frame != aside {
             // Moved by hand while aside: that's where the person wants it.
             return release()
