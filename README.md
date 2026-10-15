@@ -7,6 +7,10 @@ the whole flow in your own application. Tell TrustMe what permissions you need, 
 present a beautiful window where users can drag and drop your app into their authorized
 permissions list. No popups required.
 
+<p align="center">
+  <img src="docs/images/demo.gif" alt="Clicking Allow opens System Settings; the TrustMe window slides aside, the app is dragged from the glass band into the Accessibility list, and the permission shows as Granted" />
+</p>
+
 <table>
   <tr>
     <td align="center" valign="middle" width="50%">
