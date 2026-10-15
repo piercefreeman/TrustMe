@@ -135,6 +135,7 @@ public final class PermissionsWindow: NSObject, NSWindowDelegate {
     public private(set) static var current: PermissionsWindow?
 
     public let window: NSWindow
+    private let dodge: SettingsDodge
     private let permissions: [Permission]
     private let optional: Set<Permission>
     private let onFinish: (_ allGranted: Bool) -> Void
@@ -183,18 +184,22 @@ public final class PermissionsWindow: NSObject, NSWindowDelegate {
         window.appearance = NSAppearance(named: .darkAqua)
         window.center()
 
-        let instance = PermissionsWindow(window: window, permissions: permissions, optional: optional, onFinish: onFinish)
+        let instance = PermissionsWindow(window: window, flow: flow, permissions: permissions, optional: optional, onFinish: onFinish)
         controller = instance
         window.delegate = instance
         current = instance
 
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        // Allow opens System Settings, possibly under this window; step aside for it.
+        instance.dodge.start()
         return instance
     }
 
-    private init(window: NSWindow, permissions: [Permission], optional: Set<Permission>, onFinish: @escaping (Bool) -> Void) {
+    private init(window: NSWindow, flow: PermissionFlow, permissions: [Permission], optional: Set<Permission>,
+                 onFinish: @escaping (Bool) -> Void) {
         self.window = window
+        self.dodge = SettingsDodge(window: window, flow: flow)
         self.permissions = permissions
         self.optional = optional
         self.onFinish = onFinish
@@ -205,6 +210,7 @@ public final class PermissionsWindow: NSObject, NSWindowDelegate {
     private func finish() { window.close() }
 
     public func windowWillClose(_ notification: Notification) {
+        dodge.stop()
         guard Self.current === self else { return }
         Self.current = nil
         let center = PermissionCenter.shared
