@@ -109,6 +109,26 @@ public extension Permission {
         check: { liveOrPendingRelaunch(CGPreflightScreenCaptureAccess(), service: "ScreenCapture") }
     )
 
+    /// Recording other apps' audio with a Core Audio process tap
+    /// (`AudioHardwareCreateProcessTap`), without Screen Recording.
+    /// Listed under System Audio Recording Only, in the Screen & System
+    /// Audio Recording pane. Needs macOS 14.4 or later.
+    static let systemAudioRecording = Permission(
+        id: "system-audio-recording",
+        title: "System Audio Recording",
+        summary: "Record the audio other apps play.",
+        systemImage: "speaker.wave.2",
+        tint: Color(red: 0.95, green: 0.35, blue: 0.75),
+        settingsAnchor: "Privacy_AudioCapture",
+        tccService: "AudioCapture",
+        check: {
+            // TCC answers "would prompt" until the app is first added or asked,
+            // which for this list just means it isn't on yet.
+            if let status = TCC.currentStatus("AudioCapture") { return status }
+            return TCC.isAvailable ? .notGranted : .unknown
+        }
+    )
+
     static let inputMonitoring = Permission(
         id: "input-monitoring",
         title: "Input Monitoring",
@@ -190,7 +210,8 @@ public extension Permission {
 
     /// Permissions granted by dragging the app into a System Settings list.
     static let allDraggable: [Permission] = [
-        .accessibility, .screenRecording, .inputMonitoring, .fullDiskAccess, .appManagement, .developerTools,
+        .accessibility, .screenRecording, .systemAudioRecording, .inputMonitoring, .fullDiskAccess,
+        .appManagement, .developerTools,
     ]
 
     /// Permissions granted through a system prompt.
@@ -232,6 +253,9 @@ enum TCC {
         else { return nil }
         return unsafeBitCast(symbol, to: Preflight.self)
     }()
+
+    /// Whether TCC can be read at all on this system.
+    static var isAvailable: Bool { preflight != nil }
 
     /// Like ``status(_:)``, but double-checks a denial from a fresh process,
     /// since in-process answers can stay stuck on "denied" after a grant.
