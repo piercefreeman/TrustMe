@@ -46,6 +46,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>NSPrincipalClass</key><string>NSApplication</string>
   <key>NSCameraUsageDescription</key><string>TrustMe shows your camera in recordings and calls.</string>
   <key>NSMicrophoneUsageDescription</key><string>TrustMe records your voice in recordings and calls.</string>
+  <key>NSAudioCaptureUsageDescription</key><string>TrustMe records the audio other apps play.</string>
 </dict>
 </plist>
 PLIST

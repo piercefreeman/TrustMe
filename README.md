@@ -79,6 +79,8 @@ Things to know before shipping:
   `NSCameraUsageDescription` / `NSMicrophoneUsageDescription` to your Info.plist (macOS
   terminates apps that ask without them). With Hardened Runtime on, also add the
   `com.apple.security.device.camera` / `com.apple.security.device.audio-input` entitlements.
+- **Describe system audio use.** If you list `.systemAudioRecording`, add
+  `NSAudioCaptureUsageDescription` to your Info.plist. Core Audio process taps need it.
 - **Distribute outside the Mac App Store.** Status detection uses TCC's private
   `TCCAccessPreflight` (see [Status detection](#status-detection)). TrustMe has only been
   tested in apps without App Sandbox.
